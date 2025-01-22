@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: hms_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin_password
+    networks:
+      - hms_network
+
+  backend:
+    build: .
+    container_name: hms_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://admin:admin_password@mongodb:27017/
+      - DATABASE_NAME=hms_db
+      - JWT_SECRET_KEY=your_super_secret_key
+      - JWT_ALGORITHM=HS256
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+    networks:
+      - hms_network
+
+volumes:
+  mongodb_data:
+
+networks:
+  hms_network:
+    driver: bridge
