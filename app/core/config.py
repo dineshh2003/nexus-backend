@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     DATABASE_NAME: str
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str
-    
+
     model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()
