@@ -106,6 +106,16 @@ class Hotel:
             updated_at=db_data['updated_at']
         )
 
+    def validate_coordinates(self) -> bool:
+        if self.latitude is not None and not (-90 <= self.latitude <= 90):
+            return False
+        if self.longitude is not None and not (-180 <= self.longitude <= 180):
+            return False
+        return True
+
+    def validate_star_rating(self) -> bool:
+        return self.star_rating is None or (1 <= self.star_rating <= 5)
+
 @strawberry.input
 class HotelPolicyInput:
     check_in_time: str = "14:00"
@@ -114,6 +124,25 @@ class HotelPolicyInput:
     payment_methods: List[str] = field(default_factory=lambda: ["credit_card", "cash"])
     pet_policy: str = "not_allowed"
     extra_bed_policy: Optional[str] = None
+
+    @staticmethod
+    def validate_time_format(time_str: str) -> bool:
+        try:
+            datetime.strptime(time_str, "%H:%M")
+            return True
+        except ValueError:
+            return False
+
+    def validate(self) -> List[str]:
+        errors = []
+        if self.check_in_time and not self.validate_time_format(self.check_in_time):
+            errors.append("Invalid check-in time format. Use HH:MM")
+        if self.check_out_time and not self.validate_time_format(self.check_out_time):
+            errors.append("Invalid check-out time format. Use HH:MM")
+        if self.cancellation_hours is not None and self.cancellation_hours < 0:
+            errors.append("Cancellation hours must be non-negative")
+        return errors
+
 
 @strawberry.input
 class HotelInput:
@@ -153,3 +182,69 @@ class HotelUpdateInput:
     floor_count: Optional[int] = None
     policies: Optional[HotelPolicyInput] = None
 
+@strawberry.type
+class HotelPagination:
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    has_next: bool
+    has_previous: bool
+
+@strawberry.type
+class PaginatedHotelResponse:
+    hotels: List[Hotel]
+    pagination: HotelPagination
+
+@strawberry.type
+class HotelResponse:
+    success: bool
+    message: str
+    hotel: Optional[Hotel] = None
+
+@strawberry.type
+class HotelDeleteResponse:
+    success: bool
+    message: str
+    hotel_id: str
+
+
+@strawberry.input
+class HotelSearchInput:
+    query: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    min_rating: Optional[int] = None
+    max_rating: Optional[int] = None
+    amenities: Optional[List[str]] = None
+    status: Optional[HotelStatus] = None
+    limit: int = 10
+    offset: int = 0
+
+@strawberry.type
+class HotelStats:
+    total_rooms: int
+    occupied_rooms: int
+    available_rooms: int
+    occupancy_rate: float
+    average_rating: float
+    total_bookings: int
+    active_bookings: int
+
+@strawberry.type
+class HotelLocation:
+    address: str
+    city: str
+    state: str
+    country: str
+    zipcode: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    timezone: Optional[str]
+
+@strawberry.type
+class HotelContact:
+    phone: str
+    email: str
+    website: Optional[str]
+    social_media: Optional[dict]

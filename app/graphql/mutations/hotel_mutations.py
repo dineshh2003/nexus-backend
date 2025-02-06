@@ -19,7 +19,7 @@ class HotelMutations:
     @strawberry.mutation
     async def create_hotel(self, hotel_data: HotelInput) -> Hotel:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if admin exists
             admin = await db.users.find_one({"_id": ObjectId(hotel_data.admin_id)})
@@ -77,7 +77,7 @@ class HotelMutations:
     @strawberry.mutation
     async def update_hotel(self, id: str, hotel_data: HotelUpdateInput) -> Hotel:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if hotel exists
             existing_hotel = await db.hotels.find_one({"_id": ObjectId(id)})
@@ -166,7 +166,7 @@ class HotelMutations:
     @strawberry.mutation
     async def delete_hotel(self, id: str) -> bool:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if hotel exists
             hotel = await db.hotels.find_one({"_id": ObjectId(id)})
@@ -195,281 +195,252 @@ class HotelMutations:
         except Exception as e:
             raise ValueError(f"Error deleting hotel: {str(e)}")
 
-    # ... (rest of the methods from the previous implementation remain the same)
+    @strawberry.mutation
+    async def update_hotel_policies(self, hotel_id: str, policies: HotelPolicyInput) -> Hotel:
+        try:
+            db = MongoDB.database
+            
+            # Check if hotel exists
+            hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+            if not hotel:
+                raise ValueError("Hotel not found")
 
-@strawberry.mutation
-async def update_hotel_policies(
-    self,
-    hotel_id: str,
-    policies: HotelPolicyInput  # Use the input type instead of dict
-) -> Hotel:
-    try:
-        db = await MongoDB.get_database()
-        
-        # Check if hotel exists
-        hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-        if not hotel:
-            raise ValueError("Hotel not found")
-
-        # Convert input to dictionary, only including non-None values
-        policies_update = {
-            k: v for k, v in {
-                "check_in_time": policies.check_in_time,
-                "check_out_time": policies.check_out_time,
-                "cancellation_hours": policies.cancellation_hours,
-                "payment_methods": policies.payment_methods,
-                "pet_policy": policies.pet_policy
-            }.items() if v is not None
-        }
-
-        # Update policies
-        await db.hotels.update_one(
-            {"_id": ObjectId(hotel_id)},
-            {
-                "$set": {
-                    "policies": policies_update,
-                    "updated_at": datetime.utcnow()
-                }
+            # Convert input to dictionary, only including non-None values
+            policies_update = {
+                k: v for k, v in {
+                    "check_in_time": policies.check_in_time,
+                    "check_out_time": policies.check_out_time,
+                    "cancellation_hours": policies.cancellation_hours,
+                    "payment_methods": policies.payment_methods,
+                    "pet_policy": policies.pet_policy
+                }.items() if v is not None
             }
-        )
 
-        updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-        return Hotel.from_db(updated_hotel)
-
-    except Exception as e:
-        raise ValueError(f"Error updating hotel policies: {str(e)}")
-
-# app/graphql/mutations/hotel_mutations.py (continued)
-@strawberry.mutation
-async def add_hotel_amenities(
-        self,
-        hotel_id: str,
-        amenities: List[str]
-) -> Hotel:
-    try:
-        db = await MongoDB.get_database()
-            
-        # Check if hotel exists
-        hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-        if not hotel:
-            raise ValueError("Hotel not found")
-
-        # Add amenities (avoid duplicates)
-        await db.hotels.update_one(
-            {"_id": ObjectId(hotel_id)},
-            {
-                "$addToSet": {"amenities": {"$each": amenities}},
-                "$set": {"updated_at": datetime.utcnow()}
-            }
-        )
-
-        updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-        return Hotel.from_db(updated_hotel)
-
-    except Exception as e:
-        raise ValueError(f"Error adding hotel amenities: {str(e)}")
-
-    @strawberry.mutation
-    async def remove_hotel_amenities(
-        self,
-        hotel_id: str,
-        amenities: List[str]
-    ) -> Hotel:
-        try:
-            db = await MongoDB.get_database()
-            
-            # Check if hotel exists
-            hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            if not hotel:
-                raise ValueError("Hotel not found")
-
-            # Remove specified amenities
-            await db.hotels.update_one(
-                {"_id": ObjectId(hotel_id)},
-                {
-                    "$pull": {"amenities": {"$in": amenities}},
-                    "$set": {"updated_at": datetime.utcnow()}
-                }
-            )
-
-            updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            return Hotel.from_db(updated_hotel)
-
-        except Exception as e:
-            raise ValueError(f"Error removing hotel amenities: {str(e)}")
-
-    @strawberry.mutation
-    async def update_hotel_images(
-        self,
-        hotel_id: str,
-        images: List[str],
-        operation: str = "add"  # "add" or "remove"
-    ) -> Hotel:
-        try:
-            db = await MongoDB.get_database()
-            
-            # Check if hotel exists
-            hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            if not hotel:
-                raise ValueError("Hotel not found")
-
-            if operation == "add":
-                update_operation = {
-                    "$addToSet": {"images": {"$each": images}},
-                    "$set": {"updated_at": datetime.utcnow()}
-                }
-            elif operation == "remove":
-                update_operation = {
-                    "$pull": {"images": {"$in": images}},
-                    "$set": {"updated_at": datetime.utcnow()}
-                }
-            else:
-                raise ValueError("Invalid operation. Use 'add' or 'remove'")
-
-            await db.hotels.update_one(
-                {"_id": ObjectId(hotel_id)},
-                update_operation
-            )
-
-            updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            return Hotel.from_db(updated_hotel)
-
-        except Exception as e:
-            raise ValueError(f"Error updating hotel images: {str(e)}")
-
-    @strawberry.mutation
-    async def change_hotel_status(
-        self,
-        hotel_id: str,
-        status: HotelStatus,
-        reason: Optional[str] = None
-    ) -> Hotel:
-        try:
-            db = await MongoDB.get_database()
-            
-            # Check if hotel exists
-            hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            if not hotel:
-                raise ValueError("Hotel not found")
-
-            # Update status
-            update_dict = {
-                "status": status.value,
-                "updated_at": datetime.utcnow()
-            }
-            
-            if reason:
-                update_dict["status_change_reason"] = reason
-                update_dict["status_changed_at"] = datetime.utcnow()
-
-            await db.hotels.update_one(
-                {"_id": ObjectId(hotel_id)},
-                {"$set": update_dict}
-            )
-
-            updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            return Hotel.from_db(updated_hotel)
-
-        except Exception as e:
-            raise ValueError(f"Error changing hotel status: {str(e)}")
-
-    @strawberry.mutation
-    async def assign_hotel_admin(
-        self,
-        hotel_id: str,
-        admin_id: str
-    ) -> Hotel:
-        try:
-            db = await MongoDB.get_database()
-            
-            # Check if hotel exists
-            hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            if not hotel:
-                raise ValueError("Hotel not found")
-
-            # Check if admin exists and has appropriate role
-            admin = await db.users.find_one({
-                "_id": ObjectId(admin_id),
-                "role": {"$in": ["superadmin", "hotel_admin"]}
-            })
-            if not admin:
-                raise ValueError("Admin not found or has insufficient privileges")
-
-            # Update hotel's admin
+            # Update policies
             await db.hotels.update_one(
                 {"_id": ObjectId(hotel_id)},
                 {
                     "$set": {
-                        "admin_id": admin_id,
+                        "policies": policies_update,
                         "updated_at": datetime.utcnow()
                     }
                 }
             )
 
-            # Update admin's hotel assignments
-            await db.users.update_one(
-                {"_id": ObjectId(admin_id)},
-                {"$addToSet": {"hotel_ids": hotel_id}}
-            )
-
-            # Remove hotel from previous admin's assignments
-            if hotel.get("admin_id") and hotel["admin_id"] != admin_id:
-                await db.users.update_one(
-                    {"_id": ObjectId(hotel["admin_id"])},
-                    {"$pull": {"hotel_ids": hotel_id}}
-                )
-
             updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
             return Hotel.from_db(updated_hotel)
 
         except Exception as e:
-            raise ValueError(f"Error assigning hotel admin: {str(e)}")
+            raise ValueError(f"Error updating hotel policies: {str(e)}")
+
+    @strawberry.mutation
+    async def add_hotel_amenities(self, hotel_id: str, amenities: List[str]) -> Hotel:
+            try:
+                db = MongoDB.database
+                        
+                    # Check if hotel exists
+                hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                if not hotel:
+                    raise ValueError("Hotel not found")
+
+                    # Add amenities (avoid duplicates)
+                await db.hotels.update_one(
+                    {"_id": ObjectId(hotel_id)},
+                    {
+                        "$addToSet": {"amenities": {"$each": amenities}},
+                        "$set": {"updated_at": datetime.utcnow()}
+                    }
+                )
+
+                updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                return Hotel.from_db(updated_hotel)
+
+            except Exception as e:
+                raise ValueError(f"Error adding hotel amenities: {str(e)}")
+            
+    @strawberry.mutation
+    async def remove_hotel_amenities(self, hotel_id: str, amenities: List[str]) -> Hotel:
+            try:
+                db = MongoDB.database
+                    
+                    # Check if hotel exists
+                hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                if not hotel:
+                    raise ValueError("Hotel not found")
+
+                    # Remove specified amenities
+                await db.hotels.update_one(
+                    {"_id": ObjectId(hotel_id)},
+                    {
+                        "$pull": {"amenities": {"$in": amenities}},
+                        "$set": {"updated_at": datetime.utcnow()}
+                    }
+                )
+
+                updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                return Hotel.from_db(updated_hotel)
+
+            except Exception as e:
+                raise ValueError(f"Error removing hotel amenities: {str(e)}")
+
+    @strawberry.mutation
+    async def update_hotel_images(self, hotel_id: str, images: List[str], operation: str = "add") -> Hotel:
+            try:
+                db = MongoDB.database
+                    
+                    # Check if hotel exists
+                hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                if not hotel:
+                    raise ValueError("Hotel not found")
+
+                if operation == "add":
+                    update_operation = {
+                        "$addToSet": {"images": {"$each": images}},
+                        "$set": {"updated_at": datetime.utcnow()}
+                    }
+                elif operation == "remove":
+                    update_operation = {
+                        "$pull": {"images": {"$in": images}},
+                        "$set": {"updated_at": datetime.utcnow()}
+                    }
+                else:
+                    raise ValueError("Invalid operation. Use 'add' or 'remove'")
+
+                await db.hotels.update_one(
+                    {"_id": ObjectId(hotel_id)},
+                    update_operation
+                )
+
+                updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                return Hotel.from_db(updated_hotel)
+
+            except Exception as e:
+                raise ValueError(f"Error updating hotel images: {str(e)}")
+
+    @strawberry.mutation
+    async def change_hotel_status(self, hotel_id: str, status: HotelStatus, reason: Optional[str] = None) -> Hotel:
+            try:
+                db = MongoDB.database
+                    
+                    # Check if hotel exists
+                hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                if not hotel:
+                    raise ValueError("Hotel not found")
+
+                    # Update status
+                update_dict = {
+                    "status": status.value,
+                    "updated_at": datetime.utcnow()
+                }
+                    
+                if reason:
+                    update_dict["status_change_reason"] = reason
+                    update_dict["status_changed_at"] = datetime.utcnow()
+
+                await db.hotels.update_one(
+                    {"_id": ObjectId(hotel_id)},
+                    {"$set": update_dict}
+                )
+
+                updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                return Hotel.from_db(updated_hotel)
+
+            except Exception as e:
+                raise ValueError(f"Error changing hotel status: {str(e)}")
+
+    @strawberry.mutation
+    async def assign_hotel_admin(self, hotel_id: str, admin_id: str) -> Hotel:
+            try:
+                db = MongoDB.database
+                    
+                    # Check if hotel exists
+                hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                if not hotel:
+                    raise ValueError("Hotel not found")
+
+                    # Check if admin exists and has appropriate role
+                admin = await db.users.find_one({
+                    "_id": ObjectId(admin_id),
+                    "role": {"$in": ["superadmin", "hotel_admin"]}
+                })
+                if not admin:
+                    raise ValueError("Admin not found or has insufficient privileges")
+
+                    # Update hotel's admin
+                await db.hotels.update_one(
+                    {"_id": ObjectId(hotel_id)},
+                    {
+                        "$set": {
+                            "admin_id": admin_id,
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+
+                    # Update admin's hotel assignments
+                await db.users.update_one(
+                    {"_id": ObjectId(admin_id)},
+                    {"$addToSet": {"hotel_ids": hotel_id}}
+                )
+
+                    # Remove hotel from previous admin's assignments
+                if hotel.get("admin_id") and hotel["admin_id"] != admin_id:
+                    await db.users.update_one(
+                        {"_id": ObjectId(hotel["admin_id"])},
+                        {"$pull": {"hotel_ids": hotel_id}}
+                    )
+
+                updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                return Hotel.from_db(updated_hotel)
+
+            except Exception as e:
+                raise ValueError(f"Error assigning hotel admin: {str(e)}")
 
     @strawberry.mutation
     async def update_hotel_location(
-        self,
-        hotel_id: str,
-        latitude: float,
-        longitude: float,
-        address: Optional[str] = None,
-        city: Optional[str] = None,
-        state: Optional[str] = None,
-        country: Optional[str] = None,
-        zipcode: Optional[str] = None
-    ) -> Hotel:
-        try:
-            db = await MongoDB.get_database()
-            
-            # Check if hotel exists
-            hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            if not hotel:
-                raise ValueError("Hotel not found")
+            self,
+            hotel_id: str,
+            latitude: float,
+            longitude: float,
+            address: Optional[str] = None,
+            city: Optional[str] = None,
+            state: Optional[str] = None,
+            country: Optional[str] = None,
+            zipcode: Optional[str] = None
+        ) -> Hotel:
+            try:
+                db = MongoDB.database
+                    
+                    # Check if hotel exists
+                hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                if not hotel:
+                    raise ValueError("Hotel not found")
 
-            # Build update dictionary
-            update_dict = {
-                "latitude": latitude,
-                "longitude": longitude,
-                "updated_at": datetime.utcnow()
-            }
-            
-            if address:
-                update_dict["address"] = address
-            if city:
-                update_dict["city"] = city
-            if state:
-                update_dict["state"] = state
-            if country:
-                update_dict["country"] = country
-            if zipcode:
-                update_dict["zipcode"] = zipcode
+                    # Build update dictionary
+                update_dict = {
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "updated_at": datetime.utcnow()
+                }
+                    
+                if address:
+                    update_dict["address"] = address
+                if city:
+                    update_dict["city"] = city
+                if state:
+                    update_dict["state"] = state
+                if country:
+                    update_dict["country"] = country
+                if zipcode:
+                    update_dict["zipcode"] = zipcode
 
-            await db.hotels.update_one(
-                {"_id": ObjectId(hotel_id)},
-                {"$set": update_dict}
-            )
+                await db.hotels.update_one(
+                    {"_id": ObjectId(hotel_id)},
+                    {"$set": update_dict}
+                )
 
-            updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
-            return Hotel.from_db(updated_hotel)
+                updated_hotel = await db.hotels.find_one({"_id": ObjectId(hotel_id)})
+                return Hotel.from_db(updated_hotel)
 
-        except Exception as e:
-            raise ValueError(f"Error updating hotel location: {str(e)}")
+            except Exception as e:
+                raise ValueError(f"Error updating hotel location: {str(e)}")

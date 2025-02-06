@@ -1,6 +1,6 @@
 # app/db/mongodb.py
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import IndexModel, ASCENDING, DESCENDING, TEXT
+from pymongo import IndexModel, ASCENDING, DESCENDING, TEXT, GEOSPHERE
 from app.core.config import settings
 
 class MongoDB:
@@ -61,12 +61,24 @@ class MongoDB:
 
             # Hotels Collection Indexes
             await cls.database.hotels.create_indexes([
-                IndexModel([("name", TEXT)]),
-                IndexModel([("city", ASCENDING)]),
-                IndexModel([("status", ASCENDING)]),
-                IndexModel([("admin_id", ASCENDING)]),
-                IndexModel([("created_at", DESCENDING)])
-            ])
+            # Existing indexes
+            IndexModel([("name", TEXT)]),
+            IndexModel([("city", ASCENDING)]),
+            IndexModel([("status", ASCENDING)]),
+            IndexModel([("admin_id", ASCENDING)]),
+            IndexModel([("created_at", DESCENDING)]),
+            
+            # New indexes for enhanced functionality
+            IndexModel([("country", ASCENDING)]),
+            IndexModel([("star_rating", ASCENDING)]),
+            IndexModel([("amenities", ASCENDING)]),
+            IndexModel([("location", GEOSPHERE)]),  # For geospatial queries
+            IndexModel([("policies.check_in_time", ASCENDING)]),
+            IndexModel([("policies.check_out_time", ASCENDING)]),
+            # Compound indexes for common query patterns
+            IndexModel([("status", ASCENDING), ("city", ASCENDING)]),
+            IndexModel([("status", ASCENDING), ("star_rating", ASCENDING)])
+        ])
 
             # Rooms Collection Indexes
             await cls.database.rooms.create_indexes([
@@ -161,52 +173,94 @@ class MongoDB:
 
             # Hotels Collection Validation
             await cls.database.command({
-                "collMod": "hotels",
-                "validator": {
-                    "$jsonSchema": {
-                        "bsonType": "object",
-                        "required": ["name", "address", "city", "status", "admin_id", "created_at", "updated_at"],
-                        "properties": {
-                            "name": {"bsonType": "string"},
-                            "address": {"bsonType": "string"},
-                            "city": {"bsonType": "string"},
-                            "state": {"bsonType": "string"},
-                            "country": {"bsonType": "string"},
-                            "zipcode": {"bsonType": "string"},
-                            "status": {"enum": ["active", "inactive", "maintenance"]},
-                            "admin_id": {"bsonType": "string"},
-                            "room_count": {"bsonType": "int"},
-                            "amenities": {"bsonType": "array"},
-                            "created_at": {"bsonType": "date"},
-                            "updated_at": {"bsonType": "date"}
-                        }
+            "collMod": "hotels",
+            "validator": {
+                "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": [
+                        "name", 
+                        "address", 
+                        "city", 
+                        "state",
+                        "country",
+                        "zipcode",
+                        "status", 
+                        "admin_id", 
+                        "floor_count",
+                        "policies",
+                        "created_at", 
+                        "updated_at"
+                    ],
+                    "properties": {
+                        "name": {"bsonType": "string"},
+                        "description": {"bsonType": ["string", "null"]},
+                        "address": {"bsonType": "string"},
+                        "city": {"bsonType": "string"},
+                        "state": {"bsonType": "string"},
+                        "country": {"bsonType": "string"},
+                        "zipcode": {"bsonType": "string"},
+                        "latitude": {"bsonType": ["double", "null"]},
+                        "longitude": {"bsonType": ["double", "null"]},
+                        "contact_phone": {"bsonType": "string"},
+                        "contact_email": {"bsonType": "string"},
+                        "website": {"bsonType": ["string", "null"]},
+                        "status": {
+                            "enum": [
+                                "active", 
+                                "inactive", 
+                                "maintenance", 
+                                "under_construction"
+                            ]
+                        },
+                        "admin_id": {"bsonType": "string"},
+                        "room_count": {"bsonType": "int"},
+                        "floor_count": {"bsonType": "int"},
+                        "star_rating": {"bsonType": ["int", "null"]},
+                        "amenities": {
+                            "bsonType": "array",
+                            "items": {"bsonType": "string"}
+                        },
+                        "policies": {
+                            "bsonType": "object",
+                            "required": [
+                                "check_in_time",
+                                "check_out_time",
+                                "cancellation_hours",
+                                "payment_methods",
+                                "pet_policy"
+                            ],
+                            "properties": {
+                                "check_in_time": {"bsonType": "string"},
+                                "check_out_time": {"bsonType": "string"},
+                                "cancellation_hours": {"bsonType": "int"},
+                                "payment_methods": {
+                                    "bsonType": "array",
+                                    "items": {"bsonType": "string"}
+                                },
+                                "pet_policy": {"bsonType": "string"},
+                                "extra_bed_policy": {"bsonType": ["string", "null"]}
+                            }
+                        },
+                        "images": {
+                            "bsonType": "array",
+                            "items": {"bsonType": "string"}
+                        },
+                        "location": {
+                            "bsonType": ["object", "null"],
+                            "properties": {
+                                "type": {"bsonType": "string"},
+                                "coordinates": {
+                                    "bsonType": "array",
+                                    "items": {"bsonType": "double"}
+                                }
+                            }
+                        },
+                        "created_at": {"bsonType": "date"},
+                        "updated_at": {"bsonType": "date"}
                     }
                 }
-            })
-
-            # Rooms Collection Validation
-            await cls.database.command({
-                "collMod": "rooms",
-                "validator": {
-                    "$jsonSchema": {
-                        "bsonType": "object",
-                        "required": ["hotel_id", "room_number", "floor", "room_type", "status", "created_at", "updated_at"],
-                        "properties": {
-                            "hotel_id": {"bsonType": "string"},
-                            "room_number": {"bsonType": "string"},
-                            "floor": {"bsonType": "int"},
-                            "room_type": {"enum": ["standard", "deluxe", "suite", "executive"]},
-                            "status": {"enum": ["available", "occupied", "maintenance", "cleaning", "blocked"]},
-                            "price_per_night": {"bsonType": "double"},
-                            "capacity": {"bsonType": "int"},
-                            "amenities": {"bsonType": "array"},
-                            "is_smoking": {"bsonType": "bool"},
-                            "created_at": {"bsonType": "date"},
-                            "updated_at": {"bsonType": "date"}
-                        }
-                    }
-                }
-            })
+            }
+        })
 
             # Bookings Collection Validation
             await cls.database.command({
