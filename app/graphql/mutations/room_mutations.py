@@ -4,6 +4,8 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from bson import ObjectId
 
+from app.graphql.types.maintenance import MaintenanceType, MaintenanceCategory, PartDetailInput , MaintenanceStatus
+
 from app.graphql.types.room import (
     Room,
     RoomInput,
@@ -20,7 +22,7 @@ class RoomMutations:
     @strawberry.mutation
     async def create_room(self, room_data: RoomInput) -> Room:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Validate hotel exists
             hotel = await db.hotels.find_one({"_id": ObjectId(room_data.hotel_id)})
@@ -83,7 +85,7 @@ class RoomMutations:
     @strawberry.mutation
     async def update_room(self, id: str, room_data: RoomUpdateInput) -> Room:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if room exists
             existing_room = await db.rooms.find_one({"_id": ObjectId(id)})
@@ -132,7 +134,7 @@ class RoomMutations:
     @strawberry.mutation
     async def delete_room(self, id: str) -> bool:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if room exists
             room = await db.rooms.find_one({"_id": ObjectId(id)})
@@ -181,7 +183,7 @@ class RoomMutations:
         notes: Optional[str] = None
     ) -> Room:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if room exists
             room = await db.rooms.find_one({"_id": ObjectId(room_id)})
@@ -228,7 +230,7 @@ class RoomMutations:
         notes: Optional[str] = None
     ) -> List[Room]:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             updated_rooms = []
 
             for room_id in room_ids:
@@ -252,7 +254,7 @@ class RoomMutations:
         operation: str = "add"  # "add" or "remove"
     ) -> Room:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if room exists
             room = await db.rooms.find_one({"_id": ObjectId(room_id)})
@@ -291,7 +293,7 @@ class RoomMutations:
         extra_bed_price: Optional[float] = None
     ) -> Room:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if room exists
             room = await db.rooms.find_one({"_id": ObjectId(room_id)})
@@ -321,18 +323,26 @@ class RoomMutations:
     async def mark_room_maintenance(
         self,
         room_id: str,
-        maintenance_notes: str,
-        estimated_days: int
+        title: str,
+        description: str,
+        maintenance_type: MaintenanceType = MaintenanceType.CORRECTIVE,
+        category: MaintenanceCategory = MaintenanceCategory.GENERAL,
+        priority: str = "HIGH",
+        estimated_days: int = 1,
+        safety_notes: Optional[str] = None,
+        parts_required: Optional[List[PartDetailInput]] = None,
+        tools_required: Optional[List[str]] = None,
+        created_by: str = "SYSTEM"
     ) -> Room:
         try:
-            db = await MongoDB.get_database()
-            
-            # Check if room exists
+            db = MongoDB.database
+        
+        # Check if room exists
             room = await db.rooms.find_one({"_id": ObjectId(room_id)})
             if not room:
                 raise ValueError("Room not found")
 
-            # Check for active bookings
+        # Check for active bookings
             active_booking = await db.bookings.find_one({
                 "room_id": room_id,
                 "status": "checked_in"
@@ -340,14 +350,17 @@ class RoomMutations:
             if active_booking:
                 raise ValueError("Cannot mark occupied room for maintenance")
 
-            maintenance_end = datetime.utcnow() + timedelta(days=estimated_days)
+            current_time = datetime.utcnow()
+            scheduled_date = current_time
+            due_date = current_time + timedelta(days=estimated_days)
 
+        # Update room status
             update_dict = {
                 "status": RoomStatus.MAINTENANCE.value,
-                "maintenance_notes": maintenance_notes,
-                "maintenance_start": datetime.utcnow(),
-                "estimated_maintenance_end": maintenance_end,
-                "updated_at": datetime.utcnow()
+                "maintenance_notes": description,
+                "maintenance_start": current_time,
+                "estimated_maintenance_end": due_date,
+                "updated_at": current_time
             }
 
             await db.rooms.update_one(
@@ -355,17 +368,32 @@ class RoomMutations:
                 {"$set": update_dict}
             )
 
-            # Create maintenance task
+        # Create maintenance task
             maintenance_task = {
-                "room_id": room_id,
                 "hotel_id": room["hotel_id"],
-                "type": "maintenance",
-                "status": "pending",
-                "notes": maintenance_notes,
-                "start_date": datetime.utcnow(),
-                "estimated_end_date": maintenance_end,
-                "created_at": datetime.utcnow()
+                "room_id": room_id,
+                "area": f"Room {room['room_number']}",
+                "category": category.value,
+                "maintenance_type": maintenance_type.value,
+                "title": title,
+                "description": description,
+                "priority": priority,
+                "status": MaintenanceStatus.PENDING.value,
+                "scheduled_date": scheduled_date,
+                "due_date": due_date,
+                "estimated_duration": estimated_days * 24,
+                "parts_required": [part.__dict__ for part in (parts_required or [])],
+                "tools_required": tools_required or [],
+                "safety_notes": safety_notes,
+                "progress_notes": [],
+                "images_before": [],
+                "images_after": [],
+                "created_at": current_time,
+                "updated_at": current_time,
+                "created_by": created_by,
+                "updated_by": created_by
             }
+        
             await db.maintenance_tasks.insert_one(maintenance_task)
 
             updated_room = await db.rooms.find_one({"_id": ObjectId(room_id)})
