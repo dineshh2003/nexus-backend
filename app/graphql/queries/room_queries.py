@@ -20,7 +20,7 @@ class RoomQueries:
         Fetch a single room by its ID.
         """
         try:
-            db = MongoDB.get_database()
+            db = MongoDB.database
             room = await db.rooms.find_one({"_id": ObjectId(room_id)})
             if room:
                 return Room.from_db(room)
@@ -44,7 +44,7 @@ class RoomQueries:
         Fetch a list of rooms with optional filters.
         """
         try:
-            db = MongoDB.get_database()
+            db =MongoDB.database
             query = {}
 
             if hotel_id:
@@ -76,7 +76,7 @@ class RoomQueries:
         Fetch rooms that are available for booking within a specific date range.
         """
         try:
-            db = MongoDB.get_database()
+            db = MongoDB.database
 
             # Find rooms with conflicting bookings
             conflicting_bookings = await db.bookings.find({
@@ -117,7 +117,7 @@ class RoomQueries:
         Fetch rooms that have all the specified amenities.
         """
         try:
-            db = MongoDB.get_database()
+            db = MongoDB.database
             query = {
                 "hotel_id": hotel_id,
                 "amenities": {"$all": amenities}
@@ -140,7 +140,7 @@ class RoomQueries:
         Fetch rooms by their status (e.g., available, occupied, maintenance).
         """
         try:
-            db = MongoDB.get_database()
+            db = MongoDB.database
             query = {
                 "hotel_id": hotel_id,
                 "status": status.value

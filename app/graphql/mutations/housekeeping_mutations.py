@@ -25,7 +25,7 @@ class HousekeepingMutations:
         task_data: HousekeepingTaskInput
     ) -> HousekeepingTask:
         try:
-            db = await MongoDB.get_database()
+            db = await MongoDB.database
             
             # Validate hotel and room
             room = await db.rooms.find_one({
@@ -81,7 +81,7 @@ class HousekeepingMutations:
         notes: Optional[str] = None
     ) -> HousekeepingTask:
         try:
-            db = await MongoDB.get_database()
+            db = await MongoDB.database
             
             # Get task
             task = await db.housekeeping_tasks.find_one({"_id": ObjectId(task_id)})
@@ -136,7 +136,7 @@ class HousekeepingMutations:
     @strawberry.mutation
     async def verify_task(self, verification_data: TaskVerificationInput) -> HousekeepingTask:
         try:
-            db = await MongoDB.get_database()
+            db = await MongoDB.database
             
             # Get task
             task = await db.housekeeping_tasks.find_one({"_id": ObjectId(verification_data.task_id)})
@@ -174,7 +174,7 @@ class HousekeepingMutations:
         notes: Optional[str] = None
     ) -> List[HousekeepingTask]:
         try:
-            db = await MongoDB.get_database()
+            db = await MongoDB.database
             
             # Validate staff exists
             staff = await db.users.find_one({
@@ -222,7 +222,7 @@ class HousekeepingMutations:
         requires_maintenance: bool = False
     ) -> HousekeepingTask:
         try:
-            db = await MongoDB.get_database()
+            db = await MongoDB.database
             
             # Get task
             task = await db.housekeeping_tasks.find_one({"_id": ObjectId(task_id)})
@@ -277,7 +277,7 @@ class HousekeepingMutations:
         schedule_data: ScheduleInput
     ) -> HousekeepingSchedule:
         try:
-            db = await MongoDB.get_database()
+            db = await MongoDB.database
             
             # Create schedule
             schedule_dict = {

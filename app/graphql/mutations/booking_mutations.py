@@ -17,10 +17,10 @@ from app.db.mongodb import MongoDB
 @strawberry.type
 class BookingMutations:
     @strawberry.mutation
-    async def create_booking(self, booking_data: BookingInput) -> Booking:
+    async def create_booking(self, booking_data: BookingInput) ->  Booking:
         try:
-            db = await MongoDB.get_database()
-            
+            db = MongoDB.database
+
             # Validate hotel and room
             room = await db.rooms.find_one({
                 "_id": ObjectId(booking_data.room_id),
@@ -71,7 +71,19 @@ class BookingMutations:
                 "hotel_id": booking_data.hotel_id,
                 "room_id": booking_data.room_id,
                 "booking_number": booking_number,
-                "guest": booking_data.guest.dict(),
+                "guest": {
+                    "title": booking_data.guest.title,
+    "first_name": booking_data.guest.first_name,
+    "last_name": booking_data.guest.last_name,
+    "email": booking_data.guest.email,
+    "phone": booking_data.guest.phone,
+    "address": booking_data.guest.address,
+    "city": booking_data.guest.city,
+    "country": booking_data.guest.country,
+    "id_type": booking_data.guest.id_type,
+    "id_number": booking_data.guest.id_number,
+    "special_requests": booking_data.guest.special_requests
+                },
                 "booking_source": booking_data.booking_source,
                 "check_in_date": booking_data.check_in_date,
                 "check_out_date": booking_data.check_out_date,
@@ -99,7 +111,7 @@ class BookingMutations:
                 {"_id": ObjectId(booking_data.room_id)},
                 {
                     "$set": {
-                        "status": "booked",
+                        "status": "OCCUPIED",
                         "updated_at": datetime.utcnow()
                     }
                 }
@@ -116,9 +128,9 @@ class BookingMutations:
         booking_id: str,
         status: BookingStatus,
         notes: Optional[str] = None
-    ) -> Booking:
+    ) ->  Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if booking exists
             booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
@@ -216,9 +228,9 @@ class BookingMutations:
         self,
         booking_id: str,
         payment_data: PaymentInput
-    ) -> Booking:
+    ) ->  Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if booking exists
             booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
@@ -273,9 +285,9 @@ class BookingMutations:
         amount: float,
         charge_type: str,
         notes: Optional[str] = None
-    ) -> Booking:
+    ) ->  Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if booking exists and is checked in
             booking = await db.bookings.find_one({
@@ -319,9 +331,9 @@ class BookingMutations:
         booking_id: str,
         new_check_out_date: datetime,
         notes: Optional[str] = None
-    ) -> Booking:
+    ) ->  Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Check if booking exists
             booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
