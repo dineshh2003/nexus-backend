@@ -19,7 +19,7 @@ class BookingQueries:
         Fetch a single booking by its ID.
         """
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
             if booking:
                 return Booking.from_db(booking)
@@ -43,7 +43,7 @@ class BookingQueries:
         Fetch a list of bookings with optional filters.
         """
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             query = {}
 
             if hotel_id:
@@ -74,7 +74,7 @@ class BookingQueries:
         Fetch bookings for a specific guest by email.
         """
         try:
-            db = await MongoDB.get_database()
+            db = await MongoDB.database
             query = {"guest.email": guest_email}
 
             bookings = await db.bookings.find(query).skip(offset).limit(limit).to_list(length=limit)
@@ -93,7 +93,7 @@ class BookingQueries:
         Fetch active bookings (confirmed or checked-in) for a specific hotel.
         """
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             query = {
                 "hotel_id": hotel_id,
                 "booking_status": {"$in": [BookingStatus.CONFIRMED.value, BookingStatus.CHECKED_IN.value]}
@@ -115,7 +115,7 @@ class BookingQueries:
         Fetch upcoming bookings (check-in date in the future) for a specific hotel.
         """
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             query = {
                 "hotel_id": hotel_id,
                 "check_in_date": {"$gt": datetime.utcnow()},
@@ -136,7 +136,7 @@ class BookingQueries:
         Fetch a booking by its booking number.
         """
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             booking = await db.bookings.find_one({"booking_number": booking_number})
             if booking:
                 return Booking.from_db(booking)

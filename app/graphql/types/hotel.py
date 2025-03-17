@@ -2,7 +2,7 @@ import strawberry
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
-from dataclasses import field
+from dataclasses import dataclass, field
 
 @strawberry.enum
 class HotelStatus(str, Enum):
@@ -30,15 +30,35 @@ class HotelPolicy:
     extra_bed_policy: Optional[str] = None
 
 @strawberry.input
+@dataclass
 class HotelPolicyInput:
-    check_in_time: Optional[str] = None
-    check_out_time: Optional[str] = None
-    cancellation_hours: Optional[int] = None
-    payment_methods: Optional[List[str]] = None
-    pet_policy: Optional[str] = None
+    check_in_time: str = "14:00"
+    check_out_time: str = "11:00"
+    cancellation_hours: int = 24
+    payment_methods: List[str] = field(default_factory=lambda: ["credit_card", "cash"])
+    pet_policy: str = "not_allowed"
+    extra_bed_policy: Optional[str] = None
 
+    @staticmethod
+    def validate_time_format(time_str: str) -> bool:
+        try:
+            datetime.strptime(time_str, "%H:%M")
+            return True
+        except ValueError:
+            return False
+
+    def validate(self) -> List[str]:
+        errors = []
+        if self.check_in_time and not self.validate_time_format(self.check_in_time):
+            errors.append("Invalid check-in time format. Use HH:MM")
+        if self.check_out_time and not self.validate_time_format(self.check_out_time):
+            errors.append("Invalid check-out time format. Use HH:MM")
+        if self.cancellation_hours is not None and self.cancellation_hours < 0:
+            errors.append("Cancellation hours must be non-negative")
+        return errors
 
 @strawberry.type
+@dataclass
 class Hotel:
     id: str
     name: str
@@ -116,35 +136,10 @@ class Hotel:
     def validate_star_rating(self) -> bool:
         return self.star_rating is None or (1 <= self.star_rating <= 5)
 
-@strawberry.input
-class HotelPolicyInput:
-    check_in_time: str = "14:00"
-    check_out_time: str = "11:00"
-    cancellation_hours: int = 24
-    payment_methods: List[str] = field(default_factory=lambda: ["credit_card", "cash"])
-    pet_policy: str = "not_allowed"
-    extra_bed_policy: Optional[str] = None
-
-    @staticmethod
-    def validate_time_format(time_str: str) -> bool:
-        try:
-            datetime.strptime(time_str, "%H:%M")
-            return True
-        except ValueError:
-            return False
-
-    def validate(self) -> List[str]:
-        errors = []
-        if self.check_in_time and not self.validate_time_format(self.check_in_time):
-            errors.append("Invalid check-in time format. Use HH:MM")
-        if self.check_out_time and not self.validate_time_format(self.check_out_time):
-            errors.append("Invalid check-out time format. Use HH:MM")
-        if self.cancellation_hours is not None and self.cancellation_hours < 0:
-            errors.append("Cancellation hours must be non-negative")
-        return errors
 
 
 @strawberry.input
+@dataclass
 class HotelInput:
     name: str
     description: Optional[str] = None
