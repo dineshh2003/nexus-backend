@@ -276,52 +276,42 @@ class MongoDB:
             await cls.database.command({
                 "collMod": "bookings",
                 "validator": {
-                    "$jsonSchema": {
-                        "bsonType": "object",
-                        "required": ["hotel_id", "room_id", "guest", "check_in_date", "check_out_date", "created_at", "updated_at"],
-                        "properties": {
-                            "hotel_id": {"bsonType": "string"},
-                            "room_id": {"bsonType": "string"},
-                            "booking_number": {"bsonType": "string"},
-                            "guest": {
-                                "bsonType": "object",
-                                "required": ["name", "email", "phone"],
-                                "properties": {
-                                    "name": {"bsonType": "string"},
-                                    "email": {"bsonType": "string"},
-                                    "phone": {"bsonType": "string"}
-                                }
-                            },
-                            "booking_status": {"enum": ["pending", "confirmed", "checked_in", "checked_out", "cancelled"]},
-                            "payment_status": {"enum": ["pending", "partial", "paid", "refunded"]},
-                            "total_amount": {"bsonType": "double"},
-                            "created_at": {"bsonType": "date"},
-                            "updated_at": {"bsonType": "date"}
-                        }
-                    }
-                }
-            })
+                "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": ["hotel_id", "room_id", "guest", "check_in_date", "check_out_date", "created_at", "updated_at"],
+                    "properties": {
+                        "hotel_id": {"bsonType": "string"},
+                        "room_id": {"bsonType": "string"},
+                        "booking_number": {"bsonType": "string"},
+                
+                       "guest": {
+                            "bsonType": "object",
+                            "required": ["first_name", "last_name", "email", "phone"],
+                            "properties": {
+                                "title": {"bsonType": ["string", "null"]},  
+                                "first_name": {"bsonType": "string"},
+                                "last_name": {"bsonType": "string"},
+                                "email": {"bsonType": "string"},
+                                "phone": {"bsonType": "string"},
+                                "address": {"bsonType": ["string", "null"]},
+                                "city": {"bsonType": ["string", "null"]},
+                                "country": {"bsonType": ["string", "null"]},
+                                "id_type": {"bsonType": ["string", "null"]},
+                                "id_number": {"bsonType": ["string", "null"]},
+                                "special_requests": {"bsonType": ["string", "null"]}
+                            }
+                        },
 
-            # Housekeeping Tasks Collection Validation
-            await cls.database.command({
-                "collMod": "housekeeping_tasks",
-                "validator": {
-                    "$jsonSchema": {
-                        "bsonType": "object",
-                        "required": ["hotel_id", "room_id", "task_type", "status", "created_at", "updated_at"],
-                        "properties": {
-                            "hotel_id": {"bsonType": "string"},
-                            "room_id": {"bsonType": "string"},
-                            "task_type": {"enum": ["cleaning", "turndown", "inspection", "maintenance"]},
-                            "status": {"enum": ["pending", "in_progress", "completed", "verified", "cancelled"]},
-                            "assigned_to": {"bsonType": "string"},
-                            "priority": {"enum": ["low", "medium", "high", "urgent"]},
-                            "created_at": {"bsonType": "date"},
-                            "updated_at": {"bsonType": "date"}
-                        }
+                        "booking_status": {"enum": ["pending", "confirmed", "checked_in", "checked_out", "cancelled"]},
+                        "payment_status": {"enum": ["pending", "partial", "paid", "refunded"]},
+                        "total_amount": {"bsonType": "double"},
+                        "created_at": {"bsonType": "date"},
+                        "updated_at": {"bsonType": "date"}
                     }
                 }
-            })
+    }
+})
+
 
             # Inventory Collection Validation
             await cls.database.command({

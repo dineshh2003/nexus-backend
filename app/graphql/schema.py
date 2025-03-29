@@ -8,7 +8,6 @@ from ..graphql.mutations.user_mutations import UserMutations
 from ..graphql.mutations.hotel_mutations import HotelMutations
 from ..graphql.mutations.booking_mutations import BookingMutations
 
-# Import types
 from ..graphql.types.user import User, UserInput, UserUpdateInput
 from ..graphql.types.hotel import (
     Hotel, 
@@ -57,6 +56,11 @@ class Query:
     @strawberry.field
     def hotel(self) -> HotelQueries:
         return HotelQueries()
+    
+    @strawberry.field
+    def booking(self) -> BookingQueries:
+        return HotelQueries()
+
 
     @strawberry.field
     async def room(self, room_id: str) -> Optional[Room]:
@@ -89,8 +93,7 @@ class Query:
         guests: Optional[int] = None
     ) -> List[Room]:
         return await RoomQueries().get_available_rooms(
-            hotel_id, check_in_date, check_out_date,
-            room_type=room_type, guests=guests
+            hotel_id, check_in_date, check_out_date
         )
 
     @strawberry.field
@@ -319,7 +322,7 @@ class Mutation:
             priority, estimated_days, safety_notes, parts_required,
             tools_required, created_by
         )
-
+    
     # Booking Mutations
     @strawberry.field
     async def create_booking(self, booking_data: BookingInput) -> Booking:

@@ -16,7 +16,7 @@ from app.db.mongodb import MongoDB
 @strawberry.type
 class BookingMutations:
     @strawberry.mutation
-    async def create_booking(self, booking_data: BookingInput) -> Booking:
+    async def create_booking(self, booking_data: BookingInput) ->  Booking:
         try:
             db = MongoDB.database
             
@@ -114,7 +114,7 @@ class BookingMutations:
                 {"_id": ObjectId(booking_data.room_id)},
                 {
                     "$set": {
-                        "status": "booked",
+                        "status": "OCCUPIED",
                         "updated_at": datetime.utcnow()
                     }
                 }
@@ -146,7 +146,7 @@ class BookingMutations:
         booking_id: str,
         status: BookingStatus,
         notes: Optional[str] = None
-    ) -> Booking:
+    ) ->  Booking:
         try:
             db = MongoDB.database
             
@@ -246,7 +246,7 @@ class BookingMutations:
         self,
         booking_id: str,
         payment_data: PaymentInput
-    ) -> Booking:
+    ) ->  Booking:
         try:
             db = MongoDB.database
             
@@ -303,7 +303,7 @@ class BookingMutations:
         amount: float,
         charge_type: str,
         notes: Optional[str] = None
-    ) -> Booking:
+    ) ->  Booking:
         try:
             db = MongoDB.database
             
@@ -346,7 +346,7 @@ class BookingMutations:
         booking_id: str,
         new_check_out_date: datetime,
         notes: Optional[str] = None
-    ) -> Booking:
+    ) ->  Booking:
         try:
             db = MongoDB.database
             

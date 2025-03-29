@@ -143,6 +143,19 @@ class HousekeepingSchedule:
     notes: Optional[str]
     created_at: datetime
     updated_at: datetime
+    @classmethod
+    def from_db(cls, db_data: dict):
+        return cls(
+            id=str(db_data['_id']),
+            hotel_id=db_data['hotel_id'],
+            date=db_data['date'],
+            shift=db_data['shift'],
+            staff_assignments = db_data['staff_assignments'],
+            room_assignments = db_data['room_assignments'],
+            notes = db_data['notes'],
+            created_at=db_data['created_at'],
+            updated_at=db_data['updated_at']
+        )
 
 @strawberry.input
 class StaffAssignmentInput:
