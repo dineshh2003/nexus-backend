@@ -74,6 +74,7 @@ class HotelMutations:
         except Exception as e:
             raise ValueError(f"Error creating hotel: {str(e)}")
 
+
     @strawberry.mutation
     async def update_hotel(self, id: str, hotel_data: HotelUpdateInput) -> Hotel:
         try:
