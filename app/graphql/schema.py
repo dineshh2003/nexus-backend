@@ -6,6 +6,9 @@ from datetime import datetime
 from ..graphql.mutations.room_mutations import RoomMutations
 from ..graphql.mutations.user_mutations import UserMutations
 from ..graphql.mutations.hotel_mutations import HotelMutations
+from ..graphql.mutations.booking_mutations import BookingMutations
+
+# Import types
 from ..graphql.types.user import User, UserInput, UserUpdateInput
 from ..graphql.types.hotel import (
     Hotel, 
@@ -16,9 +19,7 @@ from ..graphql.types.hotel import (
     HotelDeleteResponse,
     PaginatedHotelResponse
 )
-
-from  ..graphql.types.maintenance import MaintenanceCategory , MaintenanceType, PartDetailInput, MaintenanceStatus
-
+from ..graphql.types.maintenance import MaintenanceCategory, MaintenanceType, PartDetailInput, MaintenanceStatus
 from ..graphql.types.room import (
     Room,
     RoomInput,
@@ -28,16 +29,26 @@ from ..graphql.types.room import (
     RoomStatus,
     BedType
 )
-from ..graphql.queries.room_queries import RoomQueries
+from ..graphql.types.booking import (
+    Booking,
+    BookingInput,
+    BookingUpdateInput,
+    BookingStatus,
+    PaymentStatus,
+    PaymentInput
+)
+
 # Import query classes
 from ..graphql.queries.user_queries import UserQueries
 from ..graphql.queries.hotel_queries import HotelQueries
+from ..graphql.queries.room_queries import RoomQueries
+from ..graphql.queries.booking_queries import BookingQueries
 
 @strawberry.type
 class Query:
     """
     Root query class for GraphQL schema.
-    Includes both user and hotel queries.
+    Includes user, hotel, room, and booking queries.
     """
     @strawberry.field
     def user(self) -> UserQueries:
@@ -97,19 +108,71 @@ class Query:
         status: RoomStatus
     ) -> List[Room]:
         return await RoomQueries().get_rooms_by_status(hotel_id, status)
+    
+    # Booking Queries
+    @strawberry.field
+    async def booking(self, booking_id: str) -> Optional[Booking]:
+        return await BookingQueries().get_booking(booking_id)
 
+    @strawberry.field
+    async def bookings(
+        self,
+        hotel_id: Optional[str] = None,
+        room_id: Optional[str] = None,
+        booking_status: Optional[BookingStatus] = None,
+        payment_status: Optional[PaymentStatus] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: Optional[int] = 10,
+        offset: Optional[int] = 0
+    ) -> List[Booking]:
+        return await BookingQueries().get_bookings(
+            hotel_id, room_id, booking_status, payment_status,
+            start_date, end_date, limit, offset
+        )
+
+    @strawberry.field
+    async def bookings_by_guest(
+        self,
+        guest_email: str,
+        limit: Optional[int] = 10,
+        offset: Optional[int] = 0
+    ) -> List[Booking]:
+        return await BookingQueries().get_bookings_by_guest(guest_email, limit, offset)
+
+    @strawberry.field
+    async def active_bookings(
+        self,
+        hotel_id: str,
+        limit: Optional[int] = 10,
+        offset: Optional[int] = 0
+    ) -> List[Booking]:
+        return await BookingQueries().get_active_bookings(hotel_id, limit, offset)
+
+    @strawberry.field
+    async def upcoming_bookings(
+        self,
+        hotel_id: str,
+        limit: Optional[int] = 10,
+        offset: Optional[int] = 0
+    ) -> List[Booking]:
+        return await BookingQueries().get_upcoming_bookings(hotel_id, limit, offset)
+
+    @strawberry.field
+    async def booking_by_number(
+        self,
+        booking_number: str
+    ) -> Optional[Booking]:
+        return await BookingQueries().get_booking_by_number(booking_number)
 
 @strawberry.type
 class Mutation:
     """
     Root mutation class for GraphQL schema.
-    Includes both user and hotel mutations.
+    Includes user, hotel, room, and booking mutations.
     """
 
-
     # User Mutations
-
-
     @strawberry.field
     def create_user(self, user_data: UserInput) -> User:
         return UserMutations().create_user(user_data)
@@ -134,11 +197,7 @@ class Mutation:
     def update_user_role(self, user_id: str, new_role: str) -> User:
         return UserMutations().update_user_role(user_id, new_role)
 
-
-
     # Hotel Mutations
-
-
     @strawberry.field
     def create_hotel(self, hotel_data: HotelInput) -> Hotel:
         return HotelMutations().create_hotel(hotel_data)
@@ -191,11 +250,7 @@ class Mutation:
             hotel_id, latitude, longitude, address, city, state, country, zipcode
         )
 
-
-
     # Room Mutations
-
-
     @strawberry.field
     async def create_room(self, room_data: RoomInput) -> Room:
         return await RoomMutations().create_room(room_data)
@@ -243,7 +298,6 @@ class Mutation:
         extra_bed_price: Optional[float] = None
     ) -> Room:
         return await RoomMutations().update_room_pricing(room_id, price_per_night, extra_bed_price)
-
     
     @strawberry.field
     async def mark_room_maintenance(
@@ -266,8 +320,51 @@ class Mutation:
             tools_required, created_by
         )
 
+    # Booking Mutations
+    @strawberry.field
+    async def create_booking(self, booking_data: BookingInput) -> Booking:
+        return await BookingMutations().create_booking(booking_data)
 
+    @strawberry.field
+    async def update_booking_status(
+        self,
+        booking_id: str,
+        status: BookingStatus,
+        notes: Optional[str] = None
+    ) -> Booking:
+        return await BookingMutations().update_booking_status(booking_id, status, notes)
 
+    @strawberry.field
+    async def add_payment(
+        self,
+        booking_id: str,
+        payment_data: PaymentInput
+    ) -> Booking:
+        return await BookingMutations().add_payment(booking_id, payment_data)
+
+    @strawberry.field
+    async def add_room_charge(
+        self,
+        booking_id: str,
+        description: str,
+        amount: float,
+        charge_type: str,
+        notes: Optional[str] = None
+    ) -> Booking:
+        return await BookingMutations().add_room_charge(
+            booking_id, description, amount, charge_type, notes
+        )
+
+    @strawberry.field
+    async def extend_booking(
+        self,
+        booking_id: str,
+        new_check_out_date: datetime,
+        notes: Optional[str] = None
+    ) -> Booking:
+        return await BookingMutations().extend_booking(
+            booking_id, new_check_out_date, notes
+        )
 
 # Create the schema with both queries and mutations
 schema = strawberry.Schema(

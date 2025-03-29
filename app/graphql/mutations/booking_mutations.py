@@ -1,4 +1,3 @@
-# app/graphql/mutations/booking_mutations.py
 import strawberry
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -19,7 +18,7 @@ class BookingMutations:
     @strawberry.mutation
     async def create_booking(self, booking_data: BookingInput) -> Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
             # Validate hotel and room
             room = await db.rooms.find_one({
@@ -67,11 +66,27 @@ class BookingMutations:
             # Create booking number (you might want to use a more sophisticated method)
             booking_number = f"BK{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
 
+            # Create guest dictionary based on GuestInput fields
+            # Use the correct field names based on your GuestInput definition
+            guest_dict = {
+                "first_name": booking_data.guest.first_name,
+                "last_name": booking_data.guest.last_name,
+                "email": booking_data.guest.email,
+                "phone": booking_data.guest.phone
+            }
+            
+            # Add name field for database validation
+            guest_dict["name"] = f"{booking_data.guest.first_name} {booking_data.guest.last_name}"
+            
+            # Add address if it exists
+            if hasattr(booking_data.guest, 'address') and booking_data.guest.address:
+                guest_dict["address"] = booking_data.guest.address
+
             booking_dict = {
                 "hotel_id": booking_data.hotel_id,
                 "room_id": booking_data.room_id,
                 "booking_number": booking_number,
-                "guest": booking_data.guest.dict(),
+                "guest": guest_dict,
                 "booking_source": booking_data.booking_source,
                 "check_in_date": booking_data.check_in_date,
                 "check_out_date": booking_data.check_out_date,
@@ -110,6 +125,21 @@ class BookingMutations:
         except Exception as e:
             raise ValueError(f"Error creating booking: {str(e)}")
 
+    # Helper method to find booking by ID or booking number
+    async def _find_booking(self, db, booking_id: str):
+        """
+        Find a booking by either ObjectId or booking number
+        """
+        booking = None
+        if len(booking_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in booking_id):
+            # It's likely an ObjectId
+            booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+        else:
+            # It's likely a booking number
+            booking = await db.bookings.find_one({"booking_number": booking_id})
+        
+        return booking
+
     @strawberry.mutation
     async def update_booking_status(
         self,
@@ -118,10 +148,10 @@ class BookingMutations:
         notes: Optional[str] = None
     ) -> Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
-            # Check if booking exists
-            booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+            # Find booking by ID or booking number
+            booking = await self._find_booking(db, booking_id)
             if not booking:
                 raise ValueError("Booking not found")
 
@@ -201,11 +231,11 @@ class BookingMutations:
                 )
 
             await db.bookings.update_one(
-                {"_id": ObjectId(booking_id)},
+                {"_id": booking["_id"]},
                 {"$set": update_dict}
             )
 
-            updated_booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+            updated_booking = await db.bookings.find_one({"_id": booking["_id"]})
             return Booking.from_db(updated_booking)
 
         except Exception as e:
@@ -218,10 +248,10 @@ class BookingMutations:
         payment_data: PaymentInput
     ) -> Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
-            # Check if booking exists
-            booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+            # Find booking by ID or booking number
+            booking = await self._find_booking(db, booking_id)
             if not booking:
                 raise ValueError("Booking not found")
 
@@ -248,7 +278,7 @@ class BookingMutations:
                 payment_status = PaymentStatus.PENDING.value
 
             await db.bookings.update_one(
-                {"_id": ObjectId(booking_id)},
+                {"_id": booking["_id"]},
                 {
                     "$push": {"payments": payment},
                     "$set": {
@@ -259,7 +289,7 @@ class BookingMutations:
                 }
             )
 
-            updated_booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+            updated_booking = await db.bookings.find_one({"_id": booking["_id"]})
             return Booking.from_db(updated_booking)
 
         except Exception as e:
@@ -275,14 +305,11 @@ class BookingMutations:
         notes: Optional[str] = None
     ) -> Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
-            # Check if booking exists and is checked in
-            booking = await db.bookings.find_one({
-                "_id": ObjectId(booking_id),
-                "booking_status": BookingStatus.CHECKED_IN.value
-            })
-            if not booking:
+            # Find booking by ID or booking number and check if it's checked in
+            booking = await self._find_booking(db, booking_id)
+            if not booking or booking["booking_status"] != BookingStatus.CHECKED_IN.value:
                 raise ValueError("Active booking not found")
 
             # Create charge record
@@ -296,7 +323,7 @@ class BookingMutations:
 
             # Update booking
             await db.bookings.update_one(
-                {"_id": ObjectId(booking_id)},
+                {"_id": booking["_id"]},
                 {
                     "$push": {"room_charges": charge},
                     "$inc": {"total_amount": amount},
@@ -307,7 +334,7 @@ class BookingMutations:
                 }
             )
 
-            updated_booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+            updated_booking = await db.bookings.find_one({"_id": booking["_id"]})
             return Booking.from_db(updated_booking)
 
         except Exception as e:
@@ -321,10 +348,10 @@ class BookingMutations:
         notes: Optional[str] = None
     ) -> Booking:
         try:
-            db = await MongoDB.get_database()
+            db = MongoDB.database
             
-            # Check if booking exists
-            booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+            # Find booking by ID or booking number
+            booking = await self._find_booking(db, booking_id)
             if not booking:
                 raise ValueError("Booking not found")
 
@@ -337,7 +364,7 @@ class BookingMutations:
             # Check room availability for extension period
             conflicting_booking = await db.bookings.find_one({
                 "room_id": booking["room_id"],
-                "_id": {"$ne": ObjectId(booking_id)},
+                "_id": {"$ne": booking["_id"]},
                 "booking_status": {"$in": ["confirmed", "checked_in"]},
                 "check_in_date": {"$lt": new_check_out_date},
                 "check_out_date": {"$gt": booking["check_out_date"]}
@@ -366,11 +393,11 @@ class BookingMutations:
                 update_dict["extension_notes"] = notes
 
             await db.bookings.update_one(
-                {"_id": ObjectId(booking_id)},
+                {"_id": booking["_id"]},
                 {"$set": update_dict}
             )
 
-            updated_booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+            updated_booking = await db.bookings.find_one({"_id": booking["_id"]})
             return Booking.from_db(updated_booking)
 
         except Exception as e:
