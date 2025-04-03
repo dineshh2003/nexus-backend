@@ -20,6 +20,7 @@ class RoomStatus(str, Enum):
     CLEANING = "cleaning"
     BLOCKED = "blocked"
     OUT_OF_ORDER = "out_of_order"
+    BOOKED = "booked"
 
 @strawberry.enum
 class BedType(str, Enum):

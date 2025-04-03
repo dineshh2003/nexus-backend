@@ -158,12 +158,15 @@ class Query:
     ) -> List[Booking]:
         return await BookingQueries().get_upcoming_bookings(hotel_id, limit, offset)
 
-    @strawberry.field
-    async def booking_by_number(
-        self,
-        booking_number: str
-    ) -> Optional[Booking]:
-        return await BookingQueries().get_booking_by_number(booking_number)
+@strawberry.field
+async def booking_by_number(
+    self,
+    booking_number: str
+) -> Optional[Booking]:
+    """
+    Fetch a booking by its booking number.
+    """
+    return await BookingQueries().get_booking_by_number(booking_number)
 
 @strawberry.type
 class Mutation:

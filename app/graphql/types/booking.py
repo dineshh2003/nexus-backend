@@ -53,12 +53,12 @@ class GuestDetails:
     last_name: str
     email: str
     phone: str
-    address: Optional[str]
-    city: Optional[str]
-    country: Optional[str]
-    id_type: Optional[str]
-    id_number: Optional[str]
-    special_requests: Optional[str]
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    id_type: Optional[str] = None
+    id_number: Optional[str] = None
+    special_requests: Optional[str] = None
 
 @strawberry.type
 class Booking:
@@ -100,11 +100,33 @@ class Booking:
         guest_data = db_data['guest'].copy()
         
         # Check if the guest data has 'name' instead of 'first_name' and 'last_name'
-        if 'name' in guest_data and 'first_name' not in guest_data:
+        if 'name' in guest_data:
             # Split name into first_name and last_name
             name_parts = guest_data.pop('name', '').split(' ', 1)
             guest_data['first_name'] = name_parts[0] if name_parts else ''
             guest_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
+        
+        # Additional safety - ensure 'name' is not in guest_data
+        if 'name' in guest_data:
+            del guest_data['name']
+        
+        # Add missing required fields with default values
+        required_guest_fields = {
+            'first_name': '',
+            'last_name': '',
+            'email': guest_data.get('email', ''),
+            'phone': guest_data.get('phone', ''),
+            'address': None,
+            'city': None,
+            'country': None,
+            'id_type': None,
+            'id_number': None,
+            'special_requests': None
+        }
+        
+        # Update with actual values from database
+        for key, value in guest_data.items():
+            required_guest_fields[key] = value
         
         # Ensure all required fields are available
         return cls(
@@ -112,7 +134,7 @@ class Booking:
             hotel_id=db_data['hotel_id'],
             room_id=db_data['room_id'],
             booking_number=db_data['booking_number'],
-            guest=GuestDetails(**guest_data),
+            guest=GuestDetails(**required_guest_fields),
             booking_status=db_data['booking_status'],
             booking_source=db_data['booking_source'],
             check_in_date=db_data['check_in_date'],
