@@ -14,19 +14,27 @@ services:
       - mongodb_data:/data/db
     networks:
       - hms_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet mongodb://admin:admin_password@localhost:27017/admin
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   api:
     build: .
     container_name: hms_api
     environment:
-      - MONGODB_URL=mongodb://admin:admin_password@mongodb:27017/
+      - MONGODB_URL=mongodb://admin:admin_password@mongodb:27017/hms_db_1?authSource=admin
       - DATABASE_NAME=hms_db_1
     ports:
       - "8000:8000"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - hms_network
+    restart: on-failure
 
 networks:
   hms_network:

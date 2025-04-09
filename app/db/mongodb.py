@@ -2,6 +2,10 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import IndexModel, ASCENDING, DESCENDING, TEXT, GEOSPHERE
 from app.core.config import settings
+import os
+import asyncio
+
+
 
 class MongoDB:
     client: AsyncIOMotorClient = None
@@ -9,21 +13,31 @@ class MongoDB:
 
     @classmethod
     async def connect_to_mongo(cls):
-        try:
-            cls.client = AsyncIOMotorClient(
-                settings.MONGODB_URL,
-                serverSelectionTimeoutMS=5000  # 5 second timeout
-            )
-            # Wait for connection to be established
-            await cls.client.server_info()
-            cls.database = cls.client[settings.DATABASE_NAME]
-            print("Connected to MongoDB!")
-            
-            # Initialize database after connection
-            await cls.init_db()
-        except Exception as e:
-            print(f"Could not connect to MongoDB: {e}")
-            raise
+        max_retries = 5
+        retry_delay = 5  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"Connecting to MongoDB (attempt {attempt+1}/{max_retries})...")
+                cls.client = AsyncIOMotorClient(
+                    settings.MONGODB_URL,
+                    serverSelectionTimeoutMS=5000  # 5 second timeout
+                )
+                # Wait for connection to be established
+                await cls.client.server_info()
+                cls.database = cls.client[settings.DATABASE_NAME]
+                print(f"Connected to MongoDB on attempt {attempt+1}!")
+                
+                # Initialize database after connection
+                await cls.init_db()
+                return
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"Failed to connect to MongoDB: {e}. Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    print(f"Could not connect to MongoDB after {max_retries} attempts: {e}")
+                    raise
 
     @classmethod
     async def get_database(cls):
@@ -40,6 +54,7 @@ class MongoDB:
         if cls.client:
             cls.client.close()
             print("MongoDB connection closed!")
+
 
     @classmethod
     async def init_db(cls):
@@ -385,4 +400,5 @@ class MongoDB:
         except Exception as e:
             print(f"Error setting up collection validations: {e}")
             raise
+
 
