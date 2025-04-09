@@ -22,7 +22,7 @@ class RoomMutations:
     @strawberry.mutation
     async def create_room(self, room_data: RoomInput) -> Room:
         try:
-            db = MongoDB.database
+            db = await MongoDB.get_database()
             
             # Validate hotel exists
             hotel = await db.hotels.find_one({"_id": ObjectId(room_data.hotel_id)})
