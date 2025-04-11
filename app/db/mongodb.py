@@ -4,12 +4,18 @@ from pymongo import IndexModel, ASCENDING, DESCENDING, TEXT, GEOSPHERE
 from app.core.config import settings
 import os
 import asyncio
+from dotenv import load_dotenv
 
+load_dotenv()
 
+MONGODB_URL = os.getenv("MONGODB_URL")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
 
 class MongoDB:
     client: AsyncIOMotorClient = None
     database = None
+
+   
 
     @classmethod
     async def connect_to_mongo(cls):
@@ -20,12 +26,12 @@ class MongoDB:
             try:
                 print(f"Connecting to MongoDB (attempt {attempt+1}/{max_retries})...")
                 cls.client = AsyncIOMotorClient(
-                    settings.MONGODB_URL,
+                    MONGODB_URL,
                     serverSelectionTimeoutMS=5000  # 5 second timeout
                 )
                 # Wait for connection to be established
                 await cls.client.server_info()
-                cls.database = cls.client[settings.DATABASE_NAME]
+                cls.database = cls.client[DATABASE_NAME]
                 print(f"Connected to MongoDB on attempt {attempt+1}!")
                 
                 # Initialize database after connection
